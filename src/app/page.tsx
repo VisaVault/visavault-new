@@ -11,18 +11,10 @@ interface QuizData {
 
 export default function Home() {
   const supabase = createClient();
-  const [user, setUser] = useState<any>(null);
   const [quizData, setQuizData] = useState<QuizData>({ score: 0, cost: 0, eligible: false });
-
-  const signIn = async () => {
-    await supabase.auth.signInWithPassword({ email: 'user@example.com', password: 'password' });
-  };
 
   const handleQuizComplete = async (data: QuizData) => {
     setQuizData(data);
-    if (user) {
-      await supabase.from('visa_apps').insert({ user_id: user.id, ...data });
-    }
   };
 
   return (
@@ -35,14 +27,6 @@ export default function Home() {
             <span>1M+ Apps Helped | USCIS-Aligned | 98% Approval Boost</span>
           </div>
         </div>
-
-        {!user ? (
-          <div className="text-center mb-8">
-            <button onClick={signIn} className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700">
-              Get Started Free – No Card Needed
-            </button>
-          </div>
-        ) : null}
 
         <Quiz onComplete={handleQuizComplete} />
 

@@ -1,6 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase';
+import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import AIChat from '@/components/AIChat';
@@ -9,36 +8,19 @@ import TranslationUpsell from '@/components/TranslationUpsell';
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function Dashboard() {
-  const supabase = createClient();
-  const [user, setUser] = useState<any>(null);
-  const [app, setApp] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        fetchApp(user.id);
-      } else {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
-
-  const fetchApp = async (userId: string) => {
-    const { data } = await supabase.from('visa_apps').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1);
-    setApp(data?.[0] || { status: 'New', progress: 0, cost_estimate: 105000 });
-    setLoading(false);
-  };
+  const [loading, setLoading] = useState(false);
 
   const handleUpgrade = async () => {
+    setLoading(true);
     const stripe = await stripePromise as Stripe;
-    if (!stripe) return;
+    if (!stripe) {
+      setLoading(false);
+      return;
+    }
     const response = await fetch('/api/stripe', { method: 'POST', body: JSON.stringify({ priceId: 'price_1SFH0gEeFggzZnrOp4YdZCTJ' }) });
     const { sessionId } = await response.json();
     await stripe.redirectToCheckout({ sessionId });
+    setLoading(false);
   };
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>;
@@ -55,19 +37,19 @@ export default function Dashboard() {
         <h3 className="text-xl font-semibold mb-4">Your Roadmap</h3>
         <div className="space-y-4">
           <div className="flex items-center space-x-3">
-            <span className={app?.score >= 6 ? 'text-green-500' : 'text-gray-400'}>✓</span>
-            <span className={app?.score >= 6 ? 'text-green-800' : 'text-gray-600'}>Eligibility Confirmed</span>
+            <span className="text-gray-400">✓</span>
+            <span className="text-gray-600">Eligibility Confirmed</span>
           </div>
           <div className="flex items-center space-x-3">
-            <span className={app?.status === 'Submitted' ? 'text-green-500' : 'text-gray-400'}>✓</span>
-            <span className={app?.status === 'Submitted' ? 'text-green-800' : 'text-gray-600'}>Submit I-129 ($100K Fee)</span>
+            <span className="text-gray-400">✓</span>
+            <span className="text-gray-600">Submit I-129 ($100K Fee)</span>
           </div>
         </div>
         <div className="mt-6">
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${app?.progress || 0}%` }}></div>
+            <div className="bg-blue-600 h-2 rounded-full" style={{ width: '0%' }}></div>
           </div>
-          <p className="text-sm text-gray-600 mt-2">Est. Cost: ${app?.cost_estimate?.toLocaleString() || '105,000'}</p>
+          <p className="text-sm text-gray-600 mt-2">Est. Cost: $105,000</p>
         </div>
       </div>
 
