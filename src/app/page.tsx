@@ -1,10 +1,16 @@
 'use client';
 import { useState } from 'react';
 
-export default function Home() {
-  const [quizData, setQuizData] = useState({ score: 0, cost: 0, eligible: false });
+interface QuizData {
+  score: number;
+  cost: number;
+  eligible: boolean;
+}
 
-  const handleQuizComplete = (data: any) => {
+export default function Home() {
+  const [quizData, setQuizData] = useState<QuizData>({ score: 0, cost: 0, eligible: false });
+
+  const handleQuizComplete = (data: QuizData) => {
     setQuizData(data);
   };
 
@@ -13,7 +19,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8 fade-in">
           <h1 className="text-4xl font-bold text-blue-900 mb-2">🛂 VisaVault</h1>
-          <p className="text-xl text-gray-600 mb-4">AI-Powered H1B & Green Card Tracker – Beat the 2025 $100K Fee</p>
+          <p className="text-xl text-gray-600 mb-4">AI-Powered H1B & Green Card Tracker - Beat the 2025 $100K Fee</p>
           <div className="flex justify-center space-x-4 text-sm text-blue-600">
             <span>1M+ Apps Helped | USCIS-Aligned | 98% Approval Boost</span>
           </div>
@@ -21,7 +27,7 @@ export default function Home() {
 
         <div className="quiz-card fade-in">
           <h2 className="text-2xl font-semibold text-gray-800 mb-6">H1B/Green Card Eligibility Quiz</h2>
-          <p className="text-gray-600 mb-6">Answer 4 quick questions – Takes 1 min.</p>
+          <p className="text-gray-600 mb-6">Answer 4 quick questions - Takes 1 min.</p>
           <form className="space-y-4" onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
