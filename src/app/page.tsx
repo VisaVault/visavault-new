@@ -1,7 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import Quiz from '@/components/Quiz';
+import { createClient } from '@supabase/ssr';
 
 interface QuizData {
   score: number;
@@ -10,7 +9,10 @@ interface QuizData {
 }
 
 export default function Home() {
-  const supabase = useSupabaseClient();
+  const supabase = createClient({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  });
   const [user, setUser] = useState<any>(null);
   const [quizData, setQuizData] = useState<QuizData>({ score: 0, cost: 0, eligible: false });
 
