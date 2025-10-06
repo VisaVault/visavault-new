@@ -54,7 +54,7 @@ export default function AIChat() {
       setError('Network error');
     } finally {
       setPending(false);
-      setQuery(''); // Clear input for next message
+      setQuery('');
     }
   };
 
