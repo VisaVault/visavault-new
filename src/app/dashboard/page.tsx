@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
-import Papa from 'papaparse';
-import VisaVaultAdvisor from '@/components/VisaVaultAdvisor';
+import AIChat from '@/components/AIChat';
 import TranslationUpsell from '@/components/TranslationUpsell';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -19,20 +18,6 @@ export default function Dashboard() {
     const { sessionId } = await response.json();
     await stripe.redirectToCheckout({ sessionId });
     setLoading(false);
-  };
-
-  const exportReport = () => {
-    const data = [
-      { 'Quiz Score': '7/10', 'Est. Cost': '$105,000', 'Eligibility': 'Strong Fit', 'Next Steps': 'Submit I-129, monitor fees' },
-    ];
-    const csv = Papa.unparse(data);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'visavault-report.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
   };
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>;
@@ -65,13 +50,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <VisaVaultAdvisor />
+      <AIChat />
       <TranslationUpsell />
 
       <div className="text-center">
-        <button onClick={exportReport} className="bg-gray-600 text-white px-6 py-3 rounded-md hover:bg-gray-700">
-          Export Full Report
-        </button>
+        <button className="bg-gray-600 text-white px-6 py-3 rounded-md hover:bg-gray-700">Export Full Report</button>
       </div>
     </div>
   );
