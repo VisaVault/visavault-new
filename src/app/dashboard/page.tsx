@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { Loader2 } from 'lucide-react';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
@@ -13,7 +13,6 @@ export default function Dashboard() {
   const user = useUser();
   const [app, setApp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -41,13 +40,9 @@ export default function Dashboard() {
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       <h1 className="text-3xl font-bold text-blue-900">Your Visa Dashboard</h1>
       
-      {!isPremium ? (
-        <div className="premium-badge text-center py-4">
-          🔒 Unlock Premium: Track Progress, AI Advice & Alerts – <button onClick={handleUpgrade} className="underline">Subscribe $19/mo</button>
-        </div>
-      ) : (
-        <div className="bg-green-50 p-4 rounded-lg text-center">✅ Premium Active – Welcome Back!</div>
-      )}
+      <div className="premium-badge text-center py-4">
+        🔒 Unlock Premium: Track Progress, AI Advice & Alerts – <button onClick={handleUpgrade} className="underline">Subscribe $19/mo</button>
+      </div>
 
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-xl font-semibold mb-4">Your Roadmap</h3>

@@ -1,5 +1,7 @@
 'use client';
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import Quiz from '@/components/Quiz';
 
 interface QuizData {
   score: number;
@@ -8,10 +10,17 @@ interface QuizData {
 }
 
 export default function Home() {
+  const supabase = useSupabaseClient();
+  const [user, setUser] = useState<any>(null);
   const [quizData, setQuizData] = useState<QuizData>({ score: 0, cost: 0, eligible: false });
 
-  const handleQuizComplete = (data: QuizData) => {
+  const signIn = async () => { /* Modal or redirect to /auth */ };
+
+  const handleQuizComplete = async (data: QuizData) => {
     setQuizData(data);
+    if (user) {
+      await supabase.from('visa_apps').insert({ user_id: user.id, ...data });
+    }
   };
 
   return (
@@ -25,50 +34,28 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="quiz-card fade-in">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">H1B/Green Card Eligibility Quiz</h2>
-          <p className="text-gray-600 mb-6">Answer 4 quick questions - Takes 1 min.</p>
-          <form className="space-y-4" onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            let score = 0;
-            let cost = 105000;
-            if (formData.get('job') === 'tech') score += 2;
-            if (formData.get('degree') === 'yes') score += 2;
-            if (formData.get('experience') === '5+') score += 2;
-            if (formData.get('fee') === 'pay') { score += 1.5; } else { cost -= 20000; }
-            const eligible = score >= 6;
-            handleQuizComplete({ score: Math.round(score), cost, eligible });
-          }}>
-            <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Job Offer?</label>
-              <label className="flex items-center"><input type="radio" name="job" value="tech" className="mr-2" /> Tech/STEM</label>
-              <label className="flex items-center"><input type="radio" name="job" value="other" className="mr-2" /> Other Skilled</label>
-            </div>
-            <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Education?</label>
-              <label className="flex items-center"><input type="radio" name="degree" value="yes" className="mr-2" /> Bachelor's+</label>
-              <label className="flex items-center"><input type="radio" name="degree" value="no" className="mr-2" /> Equivalent</label>
-            </div>
-            <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Experience?</label>
-              <label className="flex items-center"><input type="radio" name="experience" value="5+" className="mr-2" /> 5+ Years</label>
-              <label className="flex items-center"><input type="radio" name="experience" value="less" className="mr-2" /> Less</label>
-            </div>
-            <div className="border border-gray-200 rounded-md p-4 bg-yellow-50">
-              <label className="block text-sm font-medium text-gray-700 mb-2">2025 $100K Fee Impact?</label>
-              <label className="flex items-center"><input type="radio" name="fee" value="pay" className="mr-2" /> Employer Can Pay</label>
-              <label className="flex items-center"><input type="radio" name="fee" value="barrier" className="mr-2" /> Need Alternatives</label>
-            </div>
-            <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700">Calculate My Path</button>
-          </form>
-          {quizData.score > 0 && (
-            <div className={`mt-6 p-4 rounded-lg ${quizData.eligible ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
-              <h3 className="font-bold">{quizData.eligible ? 'Strong Eligibility!' : 'Room to Optimize'}</h3>
-              <p>Score: {quizData.score}/10 | Est. Cost: ${quizData.cost.toLocaleString()}</p>
-            </div>
-          )}
-        </div>
+        {!user ? (
+          <div className="text-center mb-8">
+            <button onClick={signIn} className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700">
+              Get Started Free – No Card Needed
+            </button>
+          </div>
+        ) : null}
+
+        <Quiz onComplete={handleQuizComplete} />
+
+        {quizData.score > 0 && (
+          <div className="mt-8 p-6 bg-green-50 rounded-xl border border-green-200">
+            <h2 className="text-2xl font-bold text-green-800 mb-2">Your Quick Score: {quizData.score}/10</h2>
+            <p className="text-gray-700">Est. Cost: ${quizData.cost.toLocaleString()} | {quizData.eligible ? 'Strong Fit – Track Now' : 'Optimize Path'}</p>
+            <button className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
+              Download Roadmap PDF (Free)
+            </button>
+            <button onClick={() => window.location.href = '/dashboard'} className="ml-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 premium-badge">
+              Upgrade to Premium Tracker – $19/mo
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );

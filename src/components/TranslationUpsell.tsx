@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 export default function TranslationUpsell() {
   const [doc, setDoc] = useState<File | null>(null);
@@ -7,16 +7,6 @@ export default function TranslationUpsell() {
   const handleUpload = async () => {
     if (!doc) return;
     alert('Translation coming soon! Jukelingo API not yet configured.');
-    // When API is ready:
-    // const formData = new FormData();
-    // formData.append('file', doc);
-    // const res = await fetch('https://api.jukelingo.com/translate', {
-    //   method: 'POST',
-    //   headers: { 'Authorization': `Bearer ${process.env.JUKELINGO_API_KEY}` },
-    //   body: formData,
-    // });
-    // const data = await res.json();
-    // alert(`Translation: ${data.translatedText}`);
   };
 
   return (

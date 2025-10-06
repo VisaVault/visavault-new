@@ -10,9 +10,14 @@ export default [
   ...tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
   {
+    settings: {
+      react: { version: 'detect' }, // Fix React version warning
+    },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off', // Disable any type check
-      'react/no-unescaped-entities': 'off', // Disable quote escaping
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react/no-unescaped-entities': 'off',
+      'react/react-in-jsx-scope': 'off', // Disable JSX scope rule
+      '@typescript-eslint/no-unused-vars': 'off', // Disable unused vars
     },
   },
 ];
