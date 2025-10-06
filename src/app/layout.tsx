@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <nav className="bg-blue-900 text-white p-4 flex justify-between items-center">
           <h1 className="text-xl font-bold">🛂 VisaVault</h1>
-          <a href="#" onClick={() => alert('Sign In coming soon!')}>Sign In</a>
+          <a href="/dashboard" className="bg-blue-700 px-4 py-2 rounded hover:bg-blue-800">Dashboard</a>
         </nav>
         {children}
         <Toaster position="top-right" />
