@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import AIChat from '@/components/AIChat';
@@ -9,10 +9,7 @@ import TranslationUpsell from '@/components/TranslationUpsell';
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function Dashboard() {
-  const supabase = createClient({
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  });
+  const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   const [app, setApp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
