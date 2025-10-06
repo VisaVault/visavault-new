@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { createClient } from '@/lib/supabase';
+import { createSupabaseClient } from '@/lib/supabase';
 import Quiz from '@/components/Quiz';
 
 interface QuizData {
@@ -10,7 +10,7 @@ interface QuizData {
 }
 
 export default function Home() {
-  const supabase = createClient();
+  const supabase = createSupabaseClient();
   const [quizData, setQuizData] = useState<QuizData>({ score: 0, cost: 0, eligible: false });
 
   const handleQuizComplete = async (data: QuizData) => {
