@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { Loader2 } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
 import AIChat from '@/components/AIChat';
 import TranslationUpsell from '@/components/TranslationUpsell';
 
@@ -28,10 +28,11 @@ export default function Dashboard() {
   };
 
   const handleUpgrade = async () => {
-    const stripe = await stripePromise;
+    const stripe = await stripePromise as Stripe;
+    if (!stripe) return;
     const response = await fetch('/api/stripe', { method: 'POST', body: JSON.stringify({ priceId: 'price_1SFH0gEeFggzZnrOp4YdZCTJ' }) });
     const { sessionId } = await response.json();
-    await stripe!.redirectToCheckout({ sessionId });
+    await stripe.redirectToCheckout({ sessionId });
   };
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>;
