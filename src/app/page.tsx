@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { createClient } from '@supabase/ssr';
+import Quiz from '@/components/Quiz';
 
 interface QuizData {
   score: number;
@@ -16,7 +17,9 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [quizData, setQuizData] = useState<QuizData>({ score: 0, cost: 0, eligible: false });
 
-  const signIn = async () => { /* Modal or redirect to /auth */ };
+  const signIn = async () => {
+    await supabase.auth.signInWithPassword({ email: 'user@example.com', password: 'password' });
+  };
 
   const handleQuizComplete = async (data: QuizData) => {
     setQuizData(data);

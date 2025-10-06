@@ -11,13 +11,13 @@ export default [
   pluginReact.configs.flat.recommended,
   {
     settings: {
-      react: { version: 'detect' }, // Fix React version warning
+      react: { version: 'detect' },
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'react/no-unescaped-entities': 'off',
-      'react/react-in-jsx-scope': 'off', // Disable JSX scope rule
-      '@typescript-eslint/no-unused-vars': 'off', // Disable unused vars
+      'react/react-in-jsx-scope': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
     },
   },
 ];
