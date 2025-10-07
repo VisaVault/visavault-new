@@ -14,9 +14,9 @@ interface QuizData {
 }
 
 const formSchema = z.object({
-  sponsorIncome: z.number().min(0),
-  householdSize: z.number().min(1),
-  assets: z.number().min(0),
+  sponsorIncome: z.number().min(0, { message: 'Income must be at least 0' }),
+  householdSize: z.number().min(1, { message: 'Household size must be at least 1' }),
+  assets: z.number().min(0, { message: 'Assets must be at least 0' }),
   relationshipProof: z.string().optional(),
   // Add more fields based on visa type
 });
@@ -34,6 +34,7 @@ export default function Home() {
   });
   const [affidavitDraft, setAffidavitDraft] = useState('');
   const [formProgress, setFormProgress] = useState(0);
+  const [cancellationWarning, setCancellationWarning] = useState(false);
 
   const handleQuizComplete = async (data: QuizData) => {
     setQuizData(data);
@@ -63,7 +64,7 @@ export default function Home() {
       const res = await fetch('/api/openai', {
         method: 'POST',
         body: JSON.stringify({
-          prompt: `Draft a strong I-864 affidavit for ${quizData.visaType} visa. Sponsor income: $${formData.sponsorIncome}, household size: ${formData.householdSize}, assets: $${formData.assets}. Relationship proof: ${formData.relationshipProof}. Provide suggestions for strong evidence, e.g., for marriage, include personal stories from friends/family.`,
+          prompt: `Draft a strong I-864 affidavit for ${quizData.visaType} visa. Sponsor income: $${formData.sponsorIncome}, household size: ${formData.householdSize}, assets: $${formData.assets}. Relationship proof: ${formData.relationshipProof}. Provide suggestions for strong evidence, e.g., for marriage, include personal stories from friends/family (e.g., how they know you, shared experiences). Suggest 3x poverty line for income to make case unbreakable.`,
         }),
       });
       const data = await res.json();
@@ -81,7 +82,7 @@ export default function Home() {
 
   const generatePDF = () => {
     const doc = new jsPDF();
-    doc.text('VisaVault Form & Affidavit', 20, 20);
+    doc.text('VisaForge Form & Affidavit', 20, 20);
     doc.text(`Visa Type: ${quizData.visaType}`, 20, 30);
     doc.text(`Score: ${quizData.score}/10`, 20, 40);
     doc.text(`Sponsor Income: $${formData.sponsorIncome}`, 20, 50);
@@ -89,7 +90,7 @@ export default function Home() {
     doc.text(`Assets: $${formData.assets}`, 20, 70);
     doc.text('Affidavit Draft:', 20, 80);
     doc.text(affidavitDraft, 20, 90, { maxWidth: 170 });
-    doc.save('visavault-form.pdf');
+    doc.save('visaforge-form.pdf');
   };
 
   const validateForm = () => {
@@ -102,20 +103,25 @@ export default function Home() {
     }
   };
 
+  const showCancellationWarning = () => {
+    setCancellationWarning(true);
+    setTimeout(() => setCancellationWarning(false), 5000);
+  };
+
   return (
     <main className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8 fade-in">
-          <h1 className="text-4xl font-bold text-blue-900 mb-2">🛂 VisaVault</h1>
-          <p className="text-xl text-gray-600 mb-4">AI-Powered H1B & Green Card Tracker - Beat the 2025 $100K Fee</p>
+          <h1 className="text-4xl font-bold text-blue-900 mb-2">🛂 VisaForge</h1>
+          <p className="text-xl text-gray-600 mb-4">AI-Powered Immigration Concierge - Beat the 2025 $100K Fee</p>
           <div className="flex justify-center space-x-4 text-sm text-blue-600">
             <span>1M+ Apps Helped | USCIS-Aligned | 98% Approval Boost</span>
           </div>
         </div>
 
         <div className="quiz-card fade-in">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">Assess Your H1B Eligibility in 1 Min</h2>
-          <p className="text-gray-600 mb-6">Get a personalized roadmap to beat the 2025 $100K fee and optimize your visa path. Premium ($19/mo): Real-time trackers, elite advisor chat, alerts to save 20% on fees. Cancel anytime.</p>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6">Assess Your Eligibility in 1 Min</h2>
+          <p className="text-gray-600 mb-6">Get a personalized roadmap to optimize your visa path. Premium ($19/mo): Real-time trackers, elite advisor chat, alerts to save 20% on fees. Cancel anytime.</p>
           <Quiz onComplete={handleQuizComplete} />
         </div>
 
@@ -185,6 +191,14 @@ export default function Home() {
               </div>
             )}
             <p className="text-sm text-gray-600 mt-2">Progress: {formProgress}% - All drafts saved. Canceling loses progress.</p>
+            <button onClick={showCancellationWarning} className="text-sm text-red-600 hover:underline">
+              Thinking of canceling? See what you'd lose.
+            </button>
+            {cancellationWarning && (
+              <p className="mt-2 text-red-600">
+                Canceling loses all drafts, progress, and personalized data. Stay subscribed to complete your path.
+              </p>
+            )}
           </div>
         )}
       </div>
