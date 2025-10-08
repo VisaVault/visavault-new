@@ -1,92 +1,149 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
-interface QuizProps {
-  onComplete: (data: {
-    score: number;
-    cost: number;
-    eligible: boolean;
-    visaType: 'H1B' | 'Marriage Green Card' | 'K1 Fiance' | 'Green Card' | 'Removal of Conditions' | 'Immigrant Spouse';
-  }) => void;
+export type VisaType =
+  | 'H1B'
+  | 'Marriage Green Card'
+  | 'K1 Fiance'
+  | 'Removal of Conditions'
+  | 'Immigrant Spouse'
+  | 'Green Card';
+
+interface QuizResult {
+  score: number;
+  cost: number;
+  eligible: boolean;
+  visaType: VisaType;
 }
 
-const visaTypes = [
-  'H1B',
-  'Marriage Green Card',
-  'K1 Fiance',
-  'Green Card',
-  'Removal of Conditions',
-  'Immigrant Spouse',
-] as const;
-
-export default function Quiz({ onComplete }: QuizProps) {
+export default function Quiz({ onComplete }: { onComplete: (data: QuizResult) => void }) {
+  const [visaType, setVisaType] = useState<VisaType>('Marriage Green Card');
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<{ score: number; cost: number; eligible: boolean } | null>(null);
-  const [visaType, setVisaType] = useState<typeof visaTypes[number]>('H1B');
+  const [result, setResult] = useState<QuizResult | null>(null);
 
-  const questions = [
-    { id: 'job', q: 'Job Offer?', opts: ['Tech/STEM (H1B Eligible)', 'Other Skilled'] },
-    { id: 'degree', q: 'Education?', opts: ["Bachelor's+", 'Equivalent Experience'] },
-    { id: 'experience', q: 'Experience?', opts: ['5+ Years', 'Less (EB-3 Path?)'] },
-    { id: 'fee', q: '2025 $100K Fee Impact?', opts: ['Employer Can Pay', 'Barrier – Need Alternatives'] },
-  ];
+  const questions = useMemo(() => {
+    switch (visaType) {
+      case 'H1B':
+        return [
+          { id: 'degree', q: 'Do you have a bachelor’s degree or higher (or equivalent)?', opts: ['Yes', 'No'] },
+          { id: 'offer', q: 'Do you have a valid specialty occupation job offer?', opts: ['Yes', 'No'] },
+          { id: 'lca', q: 'Is the wage at or above the required level for your SOC code?', opts: ['Yes', 'No/Unsure'] },
+          { id: 'timeline', q: 'Can your employer support same-day draft and filing coordination?', opts: ['Yes', 'No'] },
+        ];
+      case 'K1 Fiance':
+        return [
+          { id: 'met', q: 'Have you met in person within the last 2 years?', opts: ['Yes', 'No'] },
+          { id: 'intent', q: 'Do you intend to marry within 90 days of entry?', opts: ['Yes', 'No'] },
+          { id: 'proof', q: 'Do you have evidence of relationship (photos, chats, itineraries)?', opts: ['Strong', 'Limited'] },
+          { id: 'support', q: 'Is the financial support sufficient (sponsor or joint sponsor)?', opts: ['Yes', 'No/Unsure'] },
+        ];
+      case 'Removal of Conditions':
+        return [
+          { id: 'joint', q: 'Do you maintain joint documentation (lease, taxes, insurance)?', opts: ['Strong', 'Limited'] },
+          { id: 'timeline', q: 'Are you within the 90-day filing window?', opts: ['Yes', 'No/Unsure'] },
+          { id: 'evidence', q: 'Can you provide affidavits from friends/family?', opts: ['Yes', 'No'] },
+          { id: 'history', q: 'Any extended separations or complexities?', opts: ['No', 'Yes'] },
+        ];
+      case 'Immigrant Spouse':
+      case 'Marriage Green Card':
+        return [
+          { id: 'married', q: 'Are you legally married and living together or maintaining joint finances?', opts: ['Yes', 'No'] },
+          { id: 'sponsor', q: 'Is the sponsor income or assets sufficient?', opts: ['Yes', 'No/Unsure'] },
+          { id: 'proof', q: 'Do you have relationship evidence (photos, leases, bills)?', opts: ['Strong', 'Limited'] },
+          { id: 'language', q: 'Any non-English documents needing translation?', opts: ['No', 'Yes'] },
+        ];
+      case 'Green Card':
+      default:
+        return [
+          { id: 'cat', q: 'Do you have a clear category (EB-2, EB-3, family, etc.)?', opts: ['Yes', 'No/Unsure'] },
+          { id: 'docs', q: 'Do you have core documents (IDs, civil docs, degrees)?', opts: ['Strong', 'Limited'] },
+          { id: 'work', q: 'Any employment letters or proof of eligibility ready?', opts: ['Yes', 'No'] },
+          { id: 'timeline', q: 'Do you want a same-day draft of your packet?', opts: ['Yes', 'No'] },
+        ];
+    }
+  }, [visaType]);
 
-  const handleSubmit = () => {
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // simple scoring per visa path
     let score = 0;
-    let cost = 105000;
-    Object.values(answers).forEach((ans, i) => {
-      if (ans.includes('Eligible') || ans.includes('Yes') || ans.includes('5+') || ans.includes('Pay')) score += (i < 3 ? 2 : 1.5);
+    Object.values(answers).forEach((a) => {
+      if (['Yes', 'Strong'].includes(a)) score += 3;
+      if (['No', 'Limited', 'No/Unsure'].includes(a)) score += 1;
     });
-    const eligible = score >= 6;
-    if (answers.fee?.includes('Barrier')) cost -= 20000;
-    const payload = { score: Math.round(score), cost, eligible, visaType };
-    setResult(payload);
-    onComplete(payload);
-  };
+    const eligible = score >= 8;
+
+    // rough cost anchors per path (gov + typical prep)
+    const baseCost = {
+      'Marriage Green Card': 1800,
+      'Immigrant Spouse': 1800,
+      'K1 Fiance': 1500,
+      'Removal of Conditions': 800,
+      'H1B': 1200,
+      'Green Card': 1600,
+    }[visaType];
+
+    setResult({ score, cost: baseCost, eligible, visaType });
+    onComplete({ score, cost: baseCost, eligible, visaType });
+  }
 
   return (
-    <div className="quiz-card fade-in">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">Eligibility & Path Selector</h2>
-      <p className="text-gray-600 mb-6">Answer 4 questions and select your immigration path.</p>
+    <div className="card p-6 fade-in">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h2 className="text-2xl font-display font-semibold">Quick Assessment</h2>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-slate-600">Target Path</label>
+          <select
+            value={visaType}
+            onChange={(e) => { setVisaType(e.target.value as VisaType); setAnswers({}); setResult(null); }}
+            className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+          >
+            <option>Marriage Green Card</option>
+            <option>Immigrant Spouse</option>
+            <option>K1 Fiance</option>
+            <option>Removal of Conditions</option>
+            <option>H1B</option>
+            <option>Green Card</option>
+          </select>
+        </div>
+      </div>
 
-      <label className="block text-sm font-medium text-gray-700 mb-2">Target Path (drives forms)</label>
-      <select
-        className="w-full border rounded-md p-2 mb-4"
-        value={visaType}
-        onChange={(e) => setVisaType(e.target.value as typeof visaTypes[number])}
-      >
-        {visaTypes.map((t) => (
-          <option key={t} value={t}>{t}</option>
-        ))}
-      </select>
+      <p className="text-slate-600 mt-1">
+        Get a same-day, export-ready plan with guided workflows, evidence coaching, and affidavit drafting.
+      </p>
 
-      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+      <form onSubmit={handleSubmit} className="mt-4 space-y-3">
         {questions.map(({ id, q, opts }) => (
-          <div key={id} className="border border-gray-200 rounded-md p-4 bg-gray-50">
-            <label className="block text-sm font-medium text-gray-700 mb-2">{q}</label>
-            {opts.map((opt, i) => (
-              <label key={i} className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                <input
-                  type="radio"
-                  name={id}
-                  value={opt}
-                  onChange={(e) => setAnswers({ ...answers, [id]: e.target.value })}
-                  className="mr-2"
-                />
-                {opt}
-              </label>
-            ))}
+          <div key={id} className="bg-white rounded-xl border border-slate-200 p-4">
+            <p className="text-sm font-medium">{q}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {opts.map((o) => (
+                <label key={o} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={id}
+                    value={o}
+                    onChange={(e) => setAnswers((prev) => ({ ...prev, [id]: e.target.value }))}
+                    checked={answers[id] === o}
+                  />
+                  <span className="text-sm">{o}</span>
+                </label>
+              ))}
+            </div>
           </div>
         ))}
-        <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700">
-          Calculate My Path
-        </button>
+        <button className="btn btn-primary w-full mt-2">Calculate Path</button>
       </form>
 
       {result && (
-        <div className={`mt-6 p-4 rounded-lg ${result.eligible ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
-          <h3 className="font-bold">{result.eligible ? 'Strong Eligibility!' : 'Room to Optimize'}</h3>
-          <p>Score: {result.score}/10 | Est. Cost: ${result.cost.toLocaleString()}</p>
+        <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <p className="font-semibold text-emerald-800">Assessment: {result.eligible ? 'Strong fit' : 'Needs optimization'}</p>
+          <p className="text-slate-700 text-sm">
+            Score: {result.score}/12 • Estimated gov+prep costs: ${result.cost.toLocaleString()}
+          </p>
+          <p className="text-slate-600 text-sm mt-2">
+            Upgrade to <strong>Complete</strong> for Smart Validations, Mock Interview scoring, one included human review, and 2 free Document Translations.
+          </p>
         </div>
       )}
     </div>

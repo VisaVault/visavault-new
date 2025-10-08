@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { USE_CASES, VisaType } from '@/lib/checklists';
 import EvidenceUploader, { EvidenceUpload } from '@/components/EvidenceUploader';
@@ -32,12 +33,12 @@ export default function Dashboard() {
   const [uploads, setUploads] = useState<Record<string, EvidenceUpload>>({});
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const [generating, setGenerating] = useState(false);
   const [packetUrl, setPacketUrl] = useState<string | null>(null);
+  const [tier, setTier] = useState<'starter' | 'complete' | 'premium' | 'unknown'>('unknown');
 
   const cfg = USE_CASES[visaType];
 
+  // Load the latest app, detect visaType + tier from meta if present
   useEffect(() => {
     (async () => {
       try {
@@ -45,17 +46,27 @@ export default function Dashboard() {
         if (app) {
           setVisaAppId(app.id);
           setVisaType((app.visa_type as VisaType) || 'H1B');
+
+          const meta = await getVisaAppMeta(app.id);
+          if (meta?.planTier === 'starter' || meta?.planTier === 'complete' || meta?.planTier === 'premium') {
+            setTier(meta.planTier);
+          } else {
+            setTier('starter'); // default assumption if not set
+          }
         } else {
           setVisaAppId(null);
           setVisaType('H1B');
+          setTier('starter');
         }
+      } catch (e: any) {
+        setError(e?.message || 'Failed to initialize dashboard');
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  // Seed tasks on first load
+  // Seed tasks on first load for this visa app
   useEffect(() => {
     (async () => {
       if (!visaAppId) return;
@@ -64,16 +75,16 @@ export default function Dashboard() {
         [
           ...cfg.evidence.map((e) => ({
             title: (e.required ? 'Upload (Required) ' : 'Upload (Recommended) ') + e.title,
-            evidence_id: e.id
+            evidence_id: e.id,
           })),
           { title: 'Book Mock Interview session' },
           { title: 'Review Forms Checklist' },
-          { title: 'Generate USCIS packet' },
         ]
       );
       const fresh = await listTasks(visaAppId);
       setTasks(fresh as any);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visaAppId, cfg]);
 
   // Load saved evidence
@@ -100,6 +111,7 @@ export default function Dashboard() {
     if (req.size === 0) return 0;
     let done = 0;
     for (const id of req) if (uploads[id]?.complete) done += 1;
+    // Reserve 20% for packet generation & final checks
     return Math.round((done / req.size) * 80);
   }, [cfg, uploads]);
 
@@ -108,7 +120,7 @@ export default function Dashboard() {
     return req.every((id) => uploads[id]?.complete);
   }, [cfg, uploads]);
 
-  // Upload to storage (PRIVATE): bucket "evidence" with signed URL
+  // Upload to storage (best-effort): bucket "evidence"
   async function onUploadFile(file: File, evidenceId: string) {
     try {
       const supabase = createSupabaseClient();
@@ -117,24 +129,12 @@ export default function Dashboard() {
       if (!visaAppId) return { name: file.name };
 
       const path = `${userId}/${visaAppId}/${evidenceId}/${Date.now()}-${file.name}`;
-
-      const { data, error } = await supabase.storage
-        .from('evidence')
-        .upload(path, file, { upsert: true });
-
+      const { data, error } = await supabase.storage.from('evidence').upload(path, file, { upsert: true });
       if (!error && data) {
-        // Create a signed URL that expires (e.g., 7 days)
-        const { data: signed } = await supabase.storage
-          .from('evidence')
-          .createSignedUrl(path, 60 * 60 * 24 * 7);
-
-        return {
-          name: file.name,
-          url: signed?.signedUrl, // keep for immediate preview/download
-          path,                   // store path so we can re-sign later if needed
-        };
+        const { data: pub } = await supabase.storage.from('evidence').getPublicUrl(path);
+        return { name: file.name, url: pub?.publicUrl };
       }
-      return { name: file.name };
+      return { name: file.name }; // fallback
     } catch {
       return { name: file.name };
     }
@@ -175,48 +175,42 @@ export default function Dashboard() {
 
   async function generatePacket() {
     try {
-      if (!visaAppId) { setError('No active case.'); return; }
-      setGenerating(true);
       setError(null);
       setPacketUrl(null);
-
-      // Pull meta saved from Home (inputs + affidavitDraft)
-      const meta = await getVisaAppMeta(visaAppId);
-      const inputs = (meta?.inputs ?? {}) as Record<string, any>;
-      const affidavit = (meta?.affidavitDraft ?? '') as string;
-
-      if (!inputs || Object.keys(inputs).length === 0) {
-        setError('Missing required inputs. Please complete AI Form Prep and press “Send to Dashboard” first.');
-        setGenerating(false);
-        return;
-      }
-
       const res = await fetch('/api/forms/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          visa_app_id: visaAppId,
-          visa_type: visaType,
-          inputs,
-          affidavit: affidavit || '(Affidavit draft not provided yet.)',
+          visaAppId,
+          visaType,
+          includeAffidavit: true,
+          includeForms: cfg.coreForms,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Failed to generate');
-
+      if (!res.ok) throw new Error(data?.error || 'Failed to generate packet');
       setPacketUrl(data.url || null);
-      const doneTask = tasks.find(t => /generate.*packet/i.test(t.title));
-      if (doneTask) await markTask(doneTask.id, 'done');
     } catch (e: any) {
-      setError(e?.message || 'Generation error');
-    } finally {
-      setGenerating(false);
+      setError(e?.message || 'Packet generation failed');
     }
   }
 
+  async function upgradeToComplete() {
+    const res = await fetch('/api/stripe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'case', tier: 'complete', successPath: '/dashboard', cancelPath: '/pricing' }),
+    });
+    const data = await res.json();
+    if (data?.url) window.location.href = data.url;
+  }
+
   if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 className="animate-spin" /></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -258,7 +252,7 @@ export default function Dashboard() {
       <section className="space-y-8">
         <header className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-blue-900">{cfg.title} – Dashboard</h1>
+            <h1 className="text-3xl font-bold text-blue-900">{cfg.title} — Dashboard</h1>
             <p className="text-gray-600">Focused workspace tailored to your case.</p>
           </div>
           <div className="text-right">
@@ -269,9 +263,19 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* Upgrade ribbon (if Starter) */}
+        {(tier === 'starter' || tier === 'unknown') && (
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+            <div className="font-semibold text-indigo-900">Unlock Smart Validations, Mock Interview, and 1 Review</div>
+            <div className="text-sm text-indigo-900/80">Upgrade to Complete to validate fields, practice interviews, and get a human quality check.</div>
+            <button onClick={upgradeToComplete} className="btn btn-primary mt-3">Upgrade to Complete</button>
+          </div>
+        )}
+
+        {/* Core forms */}
         <div className="bg-white rounded-xl shadow p-6">
           <h2 className="text-xl font-semibold mb-2">Core Forms</h2>
-          <ul className="list-disc pl-6 text-gray-700">
+          <ul className="list-disc pl-6 text-gray-700 space-y-1">
             {cfg.coreForms.map((f) => <li key={f}>{f}</li>)}
           </ul>
           <p className="text-sm text-gray-500 mt-2">
@@ -279,6 +283,7 @@ export default function Dashboard() {
           </p>
         </div>
 
+        {/* Evidence */}
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Evidence Collection</h2>
           {cfg.evidence.map((ev) => (
@@ -287,6 +292,7 @@ export default function Dashboard() {
                 {ev.required ? 'Required' : 'Recommended'}
               </div>
               <div className="p-4 pt-2">
+                <p className="text-sm text-gray-600 mb-2">{ev.description}</p>
                 <EvidenceUploader
                   evidenceId={ev.id}
                   title={ev.title}
@@ -301,39 +307,31 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* What’s Next + Generate */}
+        {/* What's next + Generate */}
         <div className="bg-white rounded-xl shadow p-6">
           <h2 className="text-xl font-semibold mb-2">What’s Next</h2>
           <ol className="list-decimal pl-6 text-gray-700 space-y-2">
             <li>Finish all <strong>Required</strong> items above.</li>
             <li>Upload <strong>Recommended</strong> evidence to maximize approval odds.</li>
             <li>Review your <a className="underline text-blue-700" href={`/forms/${visaType}`}>Forms Checklist</a>.</li>
+            <li>
+              {formsReady ? (
+                <button onClick={generatePacket} className="btn btn-primary">Generate USCIS Packet</button>
+              ) : (
+                <span className="text-gray-600">Complete required items to enable generation.</span>
+              )}
+            </li>
             <li>Practice your <a className="underline text-purple-700" href="/mock-interview">Mock Interview</a>.</li>
-            <li>Need a translation? <a className="underline text-green-700" href="/translate">Order certified translation ($49)</a>.</li>
+            <li>Need a translation? <a className="underline text-green-700" href="/translate">Order document translation</a>.</li>
           </ol>
 
-          <div className="mt-4 flex flex-wrap gap-3 items-center">
-            <button
-              onClick={formsReady ? generatePacket : undefined}
-              disabled={!formsReady || generating}
-              className={`px-4 py-2 rounded text-white ${formsReady ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}
-            >
-              {generating ? 'Generating Packet…' : 'Generate Forms & Affidavits'}
-            </button>
+          {packetUrl && (
+            <div className="mt-4 rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-emerald-900">
+              Packet is ready: <a className="underline" href={packetUrl} target="_blank">Download your packet</a>
+            </div>
+          )}
 
-            {packetUrl && (
-              <a
-                href={packetUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 rounded text-white bg-green-600 hover:bg-green-700"
-              >
-                Download USCIS Packet (PDF)
-              </a>
-            )}
-          </div>
-
-          {error && <p className="text-red-600 mt-2">{error}</p>}
+          {error && <div className="mt-3 text-red-600 text-sm">{error}</div>}
         </div>
       </section>
     </main>
